@@ -78,6 +78,10 @@ public class Refund {
         this.status = status;
     }
 
+    public Payment getPayment() {
+        return payment;
+    }
+
     public BigDecimal getAmount() {
         return amount;
     }

@@ -22,11 +22,15 @@ import com.mcp.server.repository.RefundRepository;
 import com.mcp.server.repository.SupportTicketRepository;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * State-changing MCP tools: the actions the agent <em>takes</em> once it has
@@ -37,25 +41,32 @@ import java.time.LocalDateTime;
 @Transactional
 public class SupportActionTools {
 
+    /** Payments where the customer's money was actually taken, including any already refunded. */
+    private static final Set<PaymentStatus> REFUNDABLE_OR_REFUNDED =
+            Set.of(PaymentStatus.CAPTURED, PaymentStatus.PARTIALLY_REFUNDED, PaymentStatus.REFUNDED);
+
     private final CustomerRepository customers;
     private final ProductRepository products;
     private final OrderRepository orders;
     private final PaymentRepository payments;
     private final RefundRepository refunds;
     private final SupportTicketRepository tickets;
+    private final BigDecimal autoApproveLimit;
 
     public SupportActionTools(CustomerRepository customers,
                               ProductRepository products,
                               OrderRepository orders,
                               PaymentRepository payments,
                               RefundRepository refunds,
-                              SupportTicketRepository tickets) {
+                              SupportTicketRepository tickets,
+                              @Value("${support.refund.auto-approve-limit:50}") BigDecimal autoApproveLimit) {
         this.customers = customers;
         this.products = products;
         this.orders = orders;
         this.payments = payments;
         this.refunds = refunds;
         this.tickets = tickets;
+        this.autoApproveLimit = autoApproveLimit;
     }
 
     // ---------------------------------------------------------------------
@@ -65,9 +76,13 @@ public class SupportActionTools {
     @McpTool(name = "issue_refund",
             description = "Issue a refund against an order and record it. Optionally tie it to a "
                     + "specific charge by transaction reference (e.g. when reversing one half of "
-                    + "a duplicate charge), which marks that payment as REFUNDED. This takes real "
-                    + "action — only call once you have decided a refund is warranted.")
+                    + "a duplicate charge), which updates that payment's status. This takes real "
+                    + "action — only call once you have decided a refund is warranted. The result "
+                    + "status is PROCESSED if the refund went through, or REQUESTED if it is waiting "
+                    + "for a person to approve it and no money has moved yet.")
     public RefundResult issueRefund(
+            @McpToolParam(description = "The sender address of the email being handled; the order must belong to it")
+            String customerEmail,
             @McpToolParam(description = "The order number to refund against, e.g. 4471")
             String orderNumber,
             @McpToolParam(description = "The amount to refund, e.g. 199.99")
@@ -77,9 +92,34 @@ public class SupportActionTools {
             @McpToolParam(description = "A short human-readable reason for the refund")
             String reason,
             @McpToolParam(required = false, description = "Transaction reference of the specific "
-                    + "charge being reversed; optional. If given, that payment is marked REFUNDED.")
+                    + "charge being reversed; optional. If given, that payment's status is updated.")
             String transactionRef) {
         CustomerOrder order = requireOrder(orderNumber);
+        if (!order.getCustomer().getEmail().equalsIgnoreCase(customerEmail)) {
+            throw new IllegalArgumentException("Order " + orderNumber + " does not belong to " + customerEmail);
+        }
+        if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 2) {
+            throw new IllegalArgumentException("Refund amount must be positive with at most 2 decimals: " + amount);
+        }
+
+        List<Refund> active = refunds.findByOrderAndStatusNot(order, RefundStatus.REJECTED);
+        // A retried email runs the whole agent again, so an identical refund must not go through twice.
+        if (active.stream().anyMatch(r -> r.getAmount().compareTo(amount) == 0)) {
+            throw new IllegalArgumentException(
+                    "A refund of " + amount + " already exists on order " + orderNumber + "; not creating another.");
+        }
+        BigDecimal orderRefunded = sum(active.stream().map(Refund::getAmount));
+        BigDecimal paid = sum(order.getPayments().stream()
+                .filter(p -> REFUNDABLE_OR_REFUNDED.contains(p.getStatus()))
+                .map(Payment::getAmount));
+        BigDecimal orderTotal = orderRefunded.add(amount);
+        if (orderTotal.compareTo(paid) > 0) {
+            throw new IllegalArgumentException("Refund of " + amount + " exceeds what is left to refund on order "
+                    + orderNumber + " (paid " + paid + ", already refunded " + orderRefunded + ").");
+        }
+        RefundStatus status = orderTotal.compareTo(autoApproveLimit) > 0
+                ? RefundStatus.REQUESTED
+                : RefundStatus.PROCESSED;
 
         Refund refund = new Refund();
         refund.setOrder(order);
@@ -87,19 +127,43 @@ public class SupportActionTools {
         refund.setCurrency(order.getCurrency());
         refund.setReason(reason);
         refund.setRefundType(refundType);
-        refund.setStatus(RefundStatus.PROCESSED);
+        refund.setStatus(status);
 
         if (transactionRef != null && !transactionRef.isBlank()) {
             Payment payment = payments.findByTransactionRef(transactionRef.trim())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "No payment found with transaction reference: " + transactionRef));
-            payment.setStatus(PaymentStatus.REFUNDED);
+            if (!payment.getOrder().getId().equals(order.getId())) {
+                throw new IllegalArgumentException(
+                        "Payment " + transactionRef + " does not belong to order " + orderNumber);
+            }
+            if (payment.getStatus() != PaymentStatus.CAPTURED
+                    && payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
+                throw new IllegalArgumentException(
+                        "Payment " + transactionRef + " cannot be refunded; its status is " + payment.getStatus());
+            }
+            BigDecimal paymentTotal = amount.add(sum(active.stream()
+                    .filter(r -> r.getPayment() != null && r.getPayment().getId().equals(payment.getId()))
+                    .map(Refund::getAmount)));
+            if (paymentTotal.compareTo(payment.getAmount()) > 0) {
+                throw new IllegalArgumentException("Refund of " + amount + " exceeds what is left on payment "
+                        + transactionRef + " (charged " + payment.getAmount() + ").");
+            }
+            // A refund waiting for approval has not moved any money, so the payment stays as it is.
+            if (status == RefundStatus.PROCESSED) {
+                payment.setStatus(paymentTotal.compareTo(payment.getAmount()) == 0
+                        ? PaymentStatus.REFUNDED
+                        : PaymentStatus.PARTIALLY_REFUNDED);
+            }
             refund.setPayment(payment);
         }
 
         Refund saved = refunds.save(refund);
-        String summary = "Refund of %s %s processed on order %s (%s): %s"
-                .formatted(amount, order.getCurrency(), orderNumber, refundType, reason);
+        String outcome = status == RefundStatus.PROCESSED
+                ? "processed"
+                : "waiting for human approval, no money has moved yet,";
+        String summary = "Refund of %s %s %s on order %s (%s): %s"
+                .formatted(amount, order.getCurrency(), outcome, orderNumber, refundType, reason);
         return new RefundResult(saved.getId(), orderNumber, amount, order.getCurrency(),
                 refundType.name(), saved.getStatus().name(), summary);
     }
@@ -166,5 +230,9 @@ public class SupportActionTools {
     private CustomerOrder requireOrder(String orderNumber) {
         return orders.findByOrderNumber(orderNumber.trim())
                 .orElseThrow(() -> new IllegalArgumentException("No order found with number: " + orderNumber));
+    }
+
+    private static BigDecimal sum(Stream<BigDecimal> amounts) {
+        return amounts.reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
