@@ -43,8 +43,7 @@ public class AgentEmailHandler implements EmailHandler {
                     ========================""",
                     email.from(), email.subject(), response.operatorSummary());
             // Send the drafted reply back to the customer, threaded onto their email.
-            mailSender.sendReply(email, response);
-            return true;
+            return mailSender.sendReply(email, response);
         } catch (Exception e) {
             // Anything from a transient LLM/MCP error to a tool failure lands here.
             // Leave the mail unread so the next poll retries it.

@@ -13,25 +13,31 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Polls the Mailpit inbox on a fixed interval, turns every unread message into
  * an {@link IncomingEmail}, and forwards it to the configured
  * {@link EmailHandler}.
  * <p>
- * Read/unread state lives on the Mailpit server: fetching a message marks it
- * read, which is how we avoid reprocessing. If the handler reports failure, the
- * message is flipped back to unread so the next poll retries it.
+ * Read/unread state lives on the Mailpit server. Fetching a message marks it
+ * read, so it is set back to unread until it has been handled; a crash midway
+ * therefore cannot lose it. A failed message is retried on later polls, up to
+ * {@value #MAX_ATTEMPTS} attempts, because every attempt costs an LLM run.
  */
 @Service
 public class InboxMonitor {
 
     private static final Logger log = LoggerFactory.getLogger(InboxMonitor.class);
+    private static final int MAX_ATTEMPTS = 3;
 
     private final MailpitClient mailpit;
     private final EmailHandler handler;
     private final InboxProperties props;
+    // shortcut: counts reset on restart and need one instance, move to a database if the agent ever scales out
+    private final Map<String, Integer> failedAttempts = new HashMap<>();
 
     public InboxMonitor(MailpitClient mailpit, EmailHandler handler, InboxProperties props) {
         this.mailpit = mailpit;
@@ -62,19 +68,31 @@ public class InboxMonitor {
         try {
             // Fetching the full message marks it read on the server.
             MailpitMessage message = mailpit.getMessage(id);
-            IncomingEmail email = toIncomingEmail(message);
-            boolean handled = handler.handle(email);
-            if (!handled) {
-                // Leave it unread so the next poll picks it up again.
-                mailpit.setRead(id, false);
+            mailpit.setRead(id, false);
+            if (handler.handle(toIncomingEmail(message))) {
+                mailpit.setRead(id, true);
+                failedAttempts.remove(id);
+                return;
             }
+            log.warn("Handler could not finish message {}", id);
         } catch (Exception e) {
-            log.error("Failed to process message {}; resetting to unread for retry", id, e);
-            try {
-                mailpit.setRead(id, false);
-            } catch (Exception reset) {
-                log.warn("Could not reset message {} to unread: {}", id, reset.getMessage());
-            }
+            log.error("Failed to process message {}", id, e);
+        }
+        recordFailure(id);
+    }
+
+    private void recordFailure(String id) {
+        int attempts = failedAttempts.merge(id, 1, Integer::sum);
+        boolean giveUp = attempts >= MAX_ATTEMPTS;
+        if (giveUp) {
+            failedAttempts.remove(id);
+            log.error("Giving up on message {} after {} attempts; it needs a person to handle it", id, attempts);
+        }
+        try {
+            // Unread means the next poll retries it; read means it is left alone.
+            mailpit.setRead(id, giveUp);
+        } catch (Exception e) {
+            log.warn("Could not update read state of message {}: {}", id, e.getMessage());
         }
     }
 

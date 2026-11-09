@@ -58,8 +58,8 @@ public class MailpitClient {
     }
 
     /**
-     * Set the read flag for a single message. Used to put a message back to
-     * unread when processing fails, so it is retried on the next poll.
+     * Set the read flag for a single message. A message stays unread until it
+     * has been handled, so a failure or crash leads to a retry on a later poll.
      */
     public void setRead(String id, boolean read) {
         rest.put()
