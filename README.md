@@ -20,11 +20,10 @@ reasons with an LLM, acts through MCP tools and replies to customers by email.
 |---|---|
 | `mcp-server` | Spring Boot MCP server exposing customer / order / payment / ticket tools backed by MySQL |
 | `support-agent` | MCP client agent: polls Mailpit, asks the LLM what to do, calls tools, sends the reply |
-| `postman` | Demo requests that seed test emails |
 
 ## Run
 
 1. `cd mcp-server && ./mvnw spring-boot:run` (Docker Compose starts MySQL with schema + seed data)
 2. `export OPENAI_API_KEY=...` then `cd support-agent && ./mvnw spring-boot:run` (starts Mailpit)
-3. Import `postman/support-agent-demo.postman_collection.json` and send a request to `POST /seed-mail`
+3. Import `support-agent-demo.postman_collection.json` and send a request to `POST /seed-mail`
 4. Watch the conversation at http://localhost:8025
