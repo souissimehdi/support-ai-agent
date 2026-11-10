@@ -37,7 +37,12 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-starter-model-openai</artifactId>
+			<artifactId>spring-ai-starter-model-bedrock-converse</artifactId>
+		</dependency>
+		<!-- RestClient.Builder for MailpitClient (used to come in via the OpenAI starter) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-restclient</artifactId>
 		</dependency>
 		<!-- Jakarta Mail (IMAP for monitoring, SMTP for seeding the fake inbox) -->
 		<dependency>

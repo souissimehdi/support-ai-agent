@@ -1,7 +1,7 @@
 # support-agent
 
 Spring Boot app that answers support emails on its own. It polls a Mailpit inbox,
-hands each new email to an OpenAI model that works the case with the
+hands each new email to an AWS Bedrock model that works the case with the
 [mcp-server](../mcp-server) tools, and emails the reply back to the customer.
 
 - Java 25, Spring Boot 4.1, Spring AI 2.0
@@ -13,10 +13,25 @@ hands each new email to an OpenAI model that works the case with the
 Start `mcp-server` first. Docker must be running; Spring Boot starts Mailpit from
 `compose.yaml` for you.
 
+The model runs on AWS Bedrock, so the app needs three values. Either export them:
+
 ```bash
-export OPENAI_API_KEY=...
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+export BEDROCK_MODEL_ID=...
 ./mvnw spring-boot:run
 ```
+
+or put them in a git-ignored `secrets.properties` in this folder:
+
+```properties
+spring.ai.bedrock.aws.access-key=...
+spring.ai.bedrock.aws.secret-key=...
+BEDROCK_MODEL_ID=...
+```
+
+Run from this folder (in an IDE, set the working directory to `support-agent`):
+both `compose.yaml` and `secrets.properties` are looked up there.
 
 Send a test email, then watch the reply arrive at http://localhost:8025:
 
@@ -36,7 +51,7 @@ sequenceDiagram
     participant M as Mailpit
     participant I as InboxMonitor
     participant A as SupportAgent
-    participant O as OpenAI
+    participant O as Bedrock
     participant T as mcp-server
     participant S as SupportMailSender
 
@@ -86,7 +101,9 @@ memory, so it resets when the app restarts.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `spring.ai.openai.api-key` | `${OPENAI_API_KEY}` | OpenAI key, read from the environment |
+| `spring.ai.bedrock.aws.access-key` / `secret-key` | `${AWS_ACCESS_KEY_ID}` / `${AWS_SECRET_ACCESS_KEY}` | AWS credentials, from the environment or `secrets.properties` |
+| `spring.ai.bedrock.aws.region` | `eu-west-2` | AWS region the model is called in |
+| `spring.ai.bedrock.converse.chat.model` | `${BEDROCK_MODEL_ID}` | Bedrock model id |
 | `server.address` | `127.0.0.1` | Only this machine can connect |
 | `support-agent.inbox.base-url` | `http://localhost:8025` | Mailpit REST API |
 | `support-agent.inbox.address` | `support@example.com` | The support mailbox |
@@ -107,7 +124,7 @@ running:
 ```
 
 `SupportAgentApplicationTests` starts the full app, which connects to mcp-server at
-startup. Start mcp-server first and set `OPENAI_API_KEY`, then:
+startup. Start mcp-server first and provide the AWS values as above, then:
 
 ```bash
 ./mvnw test

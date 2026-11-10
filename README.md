@@ -12,7 +12,7 @@ reasons with an LLM, acts through MCP tools and replies to customers by email.
                     ┌────┴─────────────────────┐   MCP (streamable HTTP)   ┌──────────────────┐
                     │ support-agent  :8080      │ ────────────────────────► │ mcp-server :8090 │
                     │ InboxMonitor → SupportAgent│                          │ Query / Action    │
-                    │ (ChatClient + OpenAI)      │ ◄──────────────────────── │ tools → MySQL     │
+                    │ (ChatClient + Bedrock)     │ ◄──────────────────────── │ tools → MySQL     │
                     └───────────────────────────┘                           └──────────────────┘
 ```
 
@@ -24,7 +24,7 @@ reasons with an LLM, acts through MCP tools and replies to customers by email.
 ## Run
 
 1. `cd mcp-server && ./mvnw spring-boot:run` (Docker Compose starts MySQL with schema + seed data)
-2. `export OPENAI_API_KEY=...` then `cd support-agent && ./mvnw spring-boot:run` (starts Mailpit)
+2. Set the AWS values (see `support-agent/README.md`), then `cd support-agent && ./mvnw spring-boot:run` (starts Mailpit)
 3. Import `support-agent-demo.postman_collection.json` and send a request to `POST /seed-mail`
 4. Watch the conversation at http://localhost:8025
 
