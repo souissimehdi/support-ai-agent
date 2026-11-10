@@ -8,6 +8,7 @@ import java.util.List;
  * This is what the rest of the agent reasons about - we never leak the raw
  * Jakarta Mail {@code Message} beyond the monitor.
  *
+ * @param id        the mailbox's own id for this message (unique per stored message)
  * @param messageId the RFC 822 Message-ID header (stable per message)
  * @param from       sender address
  * @param to         recipient addresses
@@ -16,6 +17,7 @@ import java.util.List;
  * @param receivedAt when the mail server received the message
  */
 public record IncomingEmail(
+        String id,
         String messageId,
         String from,
         List<String> to,

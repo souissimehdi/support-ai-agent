@@ -38,13 +38,18 @@ docker compose down -v
 | `issue_refund` | Records a refund and updates the payment it reverses |
 | `log_support_ticket` | Records the interaction and its resolution |
 
+`get_order_by_number`, `detect_duplicate_charges`, `check_warranty` and `issue_refund`
+take a `customerEmail` and refuse an order that does not belong to it.
+
 ### Refund rules
 
 `issue_refund` refuses a refund when:
 
 - the order does not belong to `customerEmail`
 - the amount is zero, negative or has more than 2 decimals
-- a refund with the same amount already exists on the order (rejected refunds don't count)
+- a refund with the same amount already exists on the order (rejected refunds don't count).
+  This also blocks a second real refund of the same amount, e.g. two identical items
+  that each fail; a person has to add that one by hand
 - it would refund more than was paid on the order or on the given payment
 - the given payment belongs to another order or is not `CAPTURED` / `PARTIALLY_REFUNDED`
 

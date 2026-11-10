@@ -17,27 +17,13 @@
           }
         ],
         "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "from",
-              "value": "priya.sharma@example.com",
-              "type": "text",
-              "uuid": "13add5c7-1557-4f16-bbd2-d6e0c51f48a4"
-            },
-            {
-              "key": "subject",
-              "value": "Charged twice for order 4471",
-              "type": "text",
-              "uuid": "eeb68dd0-2b07-49bd-bebb-7982aec81641"
-            },
-            {
-              "key": "body",
-              "value": "Hi, I was charged twice for my order 4471 — I see two charges of  $199.99 on my card. Please refund the duplicate",
-              "type": "text",
-              "uuid": "5435eee0-b801-4593-868a-16deaa42b06a"
+          "mode": "raw",
+          "raw": "{\n  \"from\": \"priya.sharma@example.com\",\n  \"subject\": \"Charged twice for order 4471\",\n  \"body\": \"Hi, I was charged twice for my order 4471 — I see two charges of  $199.99 on my card. Please refund the duplicate\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
             }
-          ]
+          }
         },
         "url": {
           "raw": "http://localhost:8080/seed-mail",
@@ -65,27 +51,13 @@
           }
         ],
         "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "from",
-              "value": "sarah.mitchell@example.com",
-              "type": "text",
-              "uuid": "13add5c7-1557-4f16-bbd2-d6e0c51f48a4"
-            },
-            {
-              "key": "subject",
-              "value": "What's wrong with you guys",
-              "type": "text",
-              "uuid": "eeb68dd0-2b07-49bd-bebb-7982aec81641"
-            },
-            {
-              "key": "body",
-              "value": "For the third time in a row, I received a blender with a cracked jug. I no more want to take this stress. Give me my money back",
-              "type": "text",
-              "uuid": "5435eee0-b801-4593-868a-16deaa42b06a"
+          "mode": "raw",
+          "raw": "{\n  \"from\": \"sarah.mitchell@example.com\",\n  \"subject\": \"What's wrong with you guys\",\n  \"body\": \"For the third time in a row, I received a blender with a cracked jug. I no more want to take this stress. Give me my money back\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
             }
-          ]
+          }
         },
         "url": {
           "raw": "http://localhost:8080/seed-mail",
@@ -113,27 +85,13 @@
           }
         ],
         "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "from",
-              "value": "rohan.verma@example.com",
-              "type": "text",
-              "uuid": "13add5c7-1557-4f16-bbd2-d6e0c51f48a4"
-            },
-            {
-              "key": "subject",
-              "value": "Wah, kya service hai",
-              "type": "text",
-              "uuid": "eeb68dd0-2b07-49bd-bebb-7982aec81641"
-            },
-            {
-              "key": "body",
-              "value": " Wah, kya kamaal ka service hai. My BrewWell kettle from order #4502 stopped heating after exactly one week — paisa vasool, truly. \n  ▎ Aur waise bhi, jab aap is \"premium\" quality ko sambhal hi rahe ho, the HushMix hand mixer in the same box sounds like a cement \n  ▎ mixer, bilkul bhi \"quiet\" nahi hai jaisa aapne apne website pe likha tha. Do me a favour and sort both out, warna agli baar main \n  ▎ seedha review likhne wala hoon. Thanks a ton. 🙏",
-              "type": "text",
-              "uuid": "5435eee0-b801-4593-868a-16deaa42b06a"
+          "mode": "raw",
+          "raw": "{\n  \"from\": \"rohan.verma@example.com\",\n  \"subject\": \"Wah, kya service hai\",\n  \"body\": \" Wah, kya kamaal ka service hai. My BrewWell kettle from order #4502 stopped heating after exactly one week — paisa vasool, truly. \\n  ▎ Aur waise bhi, jab aap is \\\"premium\\\" quality ko sambhal hi rahe ho, the HushMix hand mixer in the same box sounds like a cement \\n  ▎ mixer, bilkul bhi \\\"quiet\\\" nahi hai jaisa aapne apne website pe likha tha. Do me a favour and sort both out, warna agli baar main \\n  ▎ seedha review likhne wala hoon. Thanks a ton. 🙏\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
             }
-          ]
+          }
         },
         "url": {
           "raw": "http://localhost:8080/seed-mail",
@@ -161,27 +119,13 @@
           }
         ],
         "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "from",
-              "value": "unknown.customer@example.com",
-              "type": "text",
-              "uuid": "13add5c7-1557-4f16-bbd2-d6e0c51f48a4"
-            },
-            {
-              "key": "subject",
-              "value": "Warranty of ZenFlow Yoga Mat",
-              "type": "text",
-              "uuid": "eeb68dd0-2b07-49bd-bebb-7982aec81641"
-            },
-            {
-              "key": "body",
-              "value": "What is the warranty of ZenFlow Yoga Mat ? I am considering to buy",
-              "type": "text",
-              "uuid": "5435eee0-b801-4593-868a-16deaa42b06a"
+          "mode": "raw",
+          "raw": "{\n  \"from\": \"unknown.customer@example.com\",\n  \"subject\": \"Warranty of ZenFlow Yoga Mat\",\n  \"body\": \"What is the warranty of ZenFlow Yoga Mat ? I am considering to buy\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
             }
-          ]
+          }
         },
         "url": {
           "raw": "http://localhost:8080/seed-mail",

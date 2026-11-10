@@ -1,12 +1,13 @@
 package com.support.agent.controller;
 
 import com.support.agent.config.InboxProperties;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -16,7 +17,7 @@ import java.time.Instant;
  * so the inbox monitor has something to pick up.
  *
  * <pre>
- *   curl -X POST "http://localhost:8080/seed-mail?subject=Refund&amp;body=Where%20is%20my%20order%3F"
+ *   curl -X POST "http://localhost:8080/seed-mail" -H "Content-Type: application/json"  *        -d '{"subject": "Refund", "body": "Where is my order?"}'
  * </pre>
  */
 @RestController
@@ -30,11 +31,13 @@ public class SeedMailController {
         this.inbox = inbox;
     }
 
-    @PostMapping("/seed-mail")
-    public ResponseEntity<SeedResult> seed(
-            @RequestParam(defaultValue = "customer@example.com") String from,
-            @RequestParam(defaultValue = "Test support request") String subject,
-            @RequestParam(defaultValue = "Hi, I need help with my recent order.") String body) {
+    // JSON only: a web page open in the browser cannot post JSON to localhost unasked,
+    // while it can post a plain form.
+    @PostMapping(path = "/seed-mail", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<SeedResult> seed(@RequestBody SeedRequest request) {
+        String from = request.from();
+        String subject = request.subject();
+        String body = request.body();
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);
@@ -50,6 +53,15 @@ public class SeedMailController {
         }
 
         return ResponseEntity.ok(SeedResult.sent(from, inbox.address(), subject, body));
+    }
+
+    /** The fake email to send; every field is optional. */
+    public record SeedRequest(String from, String subject, String body) {
+        public SeedRequest {
+            from = from != null ? from : "customer@example.com";
+            subject = subject != null ? subject : "Test support request";
+            body = body != null ? body : "Hi, I need help with my recent order.";
+        }
     }
 
     /**

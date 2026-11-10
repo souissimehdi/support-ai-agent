@@ -7,8 +7,7 @@ import com.support.agent.model.IncomingEmail;
  * <p>
  * The {@link InboxMonitor} only knows how to <em>find</em> new mail; deciding
  * what to <em>do</em> with it (classify, draft a reply, open a ticket, hand it
- * to an LLM, ...) is delegated here. Provide your own {@code @Component}
- * implementation to plug the agent's behaviour in.
+ * to an LLM, ...) is delegated here, which also lets tests swap in a mock.
  */
 @FunctionalInterface
 public interface EmailHandler {

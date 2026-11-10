@@ -104,7 +104,7 @@ public class InboxMonitor {
         String subject = message.subject() != null ? message.subject() : "";
         String body = bestBody(message);
         Instant receivedAt = parseDate(message.date());
-        return new IncomingEmail(message.messageId(), from, to, subject, body, receivedAt);
+        return new IncomingEmail(message.id(), message.messageId(), from, to, subject, body, receivedAt);
     }
 
     /** Prefer the plain-text body; fall back to HTML if that is all there is. */

@@ -97,9 +97,11 @@ public class SupportQueryTools {
                     + "quote, e.g. \"#4471\"), including line items and every payment charged "
                     + "against it.")
     public OrderDetails getOrderByNumber(
+            @McpToolParam(description = "The sender address of the email being handled; the order must belong to it")
+            String customerEmail,
             @McpToolParam(description = "The order number exactly as referenced, digits only, e.g. 4471")
             String orderNumber) {
-        return toOrderDetails(requireOrder(orderNumber));
+        return toOrderDetails(requireOrder(orderNumber, customerEmail));
     }
 
     // ---------------------------------------------------------------------
@@ -140,9 +142,11 @@ public class SupportQueryTools {
                     + "Compares the total captured against the order total and flags repeated "
                     + "charges of the same amount. Use when a customer says they were charged twice.")
     public DuplicateChargeResult detectDuplicateCharges(
+            @McpToolParam(description = "The sender address of the email being handled; the order must belong to it")
+            String customerEmail,
             @McpToolParam(description = "The order number to inspect, e.g. 4471")
             String orderNumber) {
-        CustomerOrder order = requireOrder(orderNumber);
+        CustomerOrder order = requireOrder(orderNumber, customerEmail);
         List<Payment> captured = payments.findByOrderOrderNumberOrderByChargedAtAsc(orderNumber.trim())
                 .stream()
                 .filter(p -> p.getStatus() == PaymentStatus.CAPTURED)
@@ -176,17 +180,20 @@ public class SupportQueryTools {
                     + "window, based on the order date plus the product's warranty length. Use "
                     + "before approving a warranty-based refund or replacement.")
     public WarrantyStatus checkWarranty(
+            @McpToolParam(description = "The sender address of the email being handled; the order must belong to it")
+            String customerEmail,
             @McpToolParam(description = "The order number the product was bought on, e.g. 4198")
             String orderNumber,
             @McpToolParam(required = false, description = "The product SKU to check; optional if "
                     + "the order has a single line item")
             String sku) {
-        CustomerOrder order = requireOrder(orderNumber);
+        CustomerOrder order = requireOrder(orderNumber, customerEmail);
         OrderItem item = resolveItem(order, sku);
         Product product = item.getProduct();
 
         LocalDate end = order.getOrderDate().plusMonths(product.getWarrantyMonths());
-        boolean inWarranty = !LocalDate.now().isAfter(end);
+        // 0 months means no warranty at all, not "covered on the day of purchase".
+        boolean inWarranty = product.getWarrantyMonths() > 0 && !LocalDate.now().isAfter(end);
         String summary = inWarranty
                 ? "%s on order %s is IN warranty (purchased %s, %d-month warranty ends %s)."
                         .formatted(product.getName(), orderNumber, order.getOrderDate(),
@@ -220,9 +227,14 @@ public class SupportQueryTools {
     // Helpers
     // ---------------------------------------------------------------------
 
-    private CustomerOrder requireOrder(String orderNumber) {
-        return orders.findByOrderNumber(orderNumber.trim())
+    /** The model picks the arguments, so an order is only shown to the customer it belongs to. */
+    private CustomerOrder requireOrder(String orderNumber, String customerEmail) {
+        CustomerOrder order = orders.findByOrderNumber(orderNumber.trim())
                 .orElseThrow(() -> new IllegalArgumentException("No order found with number: " + orderNumber));
+        if (!order.getCustomer().getEmail().equalsIgnoreCase(customerEmail)) {
+            throw new IllegalArgumentException("Order " + orderNumber + " does not belong to " + customerEmail);
+        }
+        return order;
     }
 
     private OrderItem resolveItem(CustomerOrder order, String sku) {

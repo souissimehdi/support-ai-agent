@@ -13,21 +13,17 @@ hands each new email to an AWS Bedrock model that works the case with the
 Start `mcp-server` first. Docker must be running; Spring Boot starts Mailpit from
 `compose.yaml` for you.
 
-The model runs on AWS Bedrock, so the app needs three values. Either export them:
-
-```bash
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
-export BEDROCK_MODEL_ID=...
-./mvnw spring-boot:run
-```
-
-or put them in a git-ignored `secrets.properties` in this folder:
+The model runs on AWS Bedrock, so the app needs three values. Put them in a
+git-ignored `secrets.properties` in this folder; the app refuses to start without it:
 
 ```properties
 spring.ai.bedrock.aws.access-key=...
 spring.ai.bedrock.aws.secret-key=...
 BEDROCK_MODEL_ID=...
+```
+
+```bash
+./mvnw spring-boot:run
 ```
 
 Run from this folder (in an IDE, set the working directory to `support-agent`):
@@ -36,10 +32,11 @@ both `compose.yaml` and `secrets.properties` are looked up there.
 Send a test email, then watch the reply arrive at http://localhost:8025:
 
 ```bash
-curl -X POST "http://localhost:8080/seed-mail" --data-urlencode "from=priya.sharma@example.com" --data-urlencode "subject=Charged twice for order 4471" --data-urlencode "body=Hi, I was charged twice for order 4471. Please refund the duplicate."
+curl -X POST "http://localhost:8080/seed-mail" -H "Content-Type: application/json" -d '{"from": "priya.sharma@example.com", "subject": "Charged twice for order 4471", "body": "Hi, I was charged twice for order 4471. Please refund the duplicate."}'
 ```
 
-`/seed-mail` takes `from`, `subject` and `body`, all optional. It returns `502` when
+`/seed-mail` takes a JSON body with `from`, `subject` and `body`, all optional (send `{}`
+for the defaults). It only accepts JSON, so a web page cannot post to it behind your back. It returns `502` when
 Mailpit is not reachable. The Postman collection at the repo root,
 `support-agent-demo.postman_collection.json`, has ready-made requests.
 
@@ -101,9 +98,9 @@ memory, so it resets when the app restarts.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `spring.ai.bedrock.aws.access-key` / `secret-key` | `${AWS_ACCESS_KEY_ID}` / `${AWS_SECRET_ACCESS_KEY}` | AWS credentials, from the environment or `secrets.properties` |
+| `spring.ai.bedrock.aws.access-key` / `secret-key` | set in `secrets.properties` | AWS credentials |
 | `spring.ai.bedrock.aws.region` | `eu-west-2` | AWS region the model is called in |
-| `spring.ai.bedrock.converse.chat.model` | `${BEDROCK_MODEL_ID}` | Bedrock model id |
+| `spring.ai.bedrock.converse.chat.model` | `${BEDROCK_MODEL_ID}` | Bedrock model id, set in `secrets.properties` |
 | `server.address` | `127.0.0.1` | Only this machine can connect |
 | `support-agent.inbox.base-url` | `http://localhost:8025` | Mailpit REST API |
 | `support-agent.inbox.address` | `support@example.com` | The support mailbox |
@@ -124,7 +121,8 @@ running:
 ```
 
 `SupportAgentApplicationTests` starts the full app, which connects to mcp-server at
-startup. Start mcp-server first and provide the AWS values as above, then:
+startup. It points the inbox at a dead address, so it never handles real mail. Start
+mcp-server first and provide `secrets.properties` as above, then:
 
 ```bash
 ./mvnw test
